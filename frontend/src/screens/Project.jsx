@@ -1,34 +1,58 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { MdOutlineGroup } from "react-icons/md";
 import { IoMdSend } from "react-icons/io";
 import { IoCloseSharp } from "react-icons/io5";
 import { FaUserAlt } from "react-icons/fa";
 import { IoMdPersonAdd } from "react-icons/io";
+import axios from "../config/axios.js";
 
 const Project = () => {
   const location = useLocation();
 
-  console.log(location.state);
 
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [users, setUsers] = useState([
-    { id: 1, email: "user1@example.com" },
-    { id: 2, email: "user2@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-    { id: 3, email: "user3@example.com" },
-  ]);
+  const [selectedUserId, setSelectedUserId] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [project, setProject] = useState(location.state.project);
+
+  const handleUserClick = (userId) => {
+    setSelectedUserId((prevSelectedUserId) =>
+      prevSelectedUserId.includes(userId)
+        ? prevSelectedUserId.filter((id) => id !== userId)
+        : [...prevSelectedUserId, userId]
+    );
+  };
+
+  function addCollaborators() {
+    axios.put('/projects/add-user', {
+      projectId: location.state.project._id,
+      users: selectedUserId
+    }).then((res) => {
+      console.log(res);
+      setIsModalOpen(false);
+    }).catch((err) => {
+      console.log(err);
+    });
+  }
+
+  useEffect(() => {
+
+    axios.get(`/projects/${location.state.project._id}`).then((res) => {
+      setProject(res.data.project);
+    }).catch((err) => {
+      console.log(err);
+    });
+
+    axios.get('/users/all').then((res) => {
+      setUsers(res.data.users);
+    }).catch((err) => {
+      console.log(err);
+    });
+  }, []);
+
+  
 
   return (
     <main className="h-screen w-screen flex">
@@ -117,8 +141,9 @@ const Project = () => {
             <div className="users-list max-h-96 overflow-auto">
               {users.map((user) => (
                 <div
-                  key={user.id}
-                  className="user-item flex hover:bg-slate-200 items-center gap-3 cursor-pointer p-2 border-b border-gray-200"
+                  key={user._id}
+                  className={`user-item flex hover:bg-slate-200 items-center gap-3 cursor-pointer p-2 border-b border-gray-200 ${selectedUserId.indexOf(user._id) !== -1 ? "bg-slate-200" : ""}`}
+                  onClick={() => handleUserClick(user._id)}
                 >
                   <div className="aspect-square relative rounded-full p-5 w-fit h-fit flex items-center justify-center bg-slate-600">
                     <FaUserAlt className="text-white absolute" />
@@ -129,7 +154,7 @@ const Project = () => {
             </div>
             <button
               className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white py-2 px-4 rounded-md"
-              onClick={() => setIsModalOpen(false)}
+              onClick={addCollaborators}
             >
               Add Collaborators
             </button>
