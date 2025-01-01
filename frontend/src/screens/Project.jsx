@@ -12,6 +12,9 @@ import {
   sendMessage,
 } from "../config/socket.js";
 import { UserContext } from "../context/user.context.jsx";
+import Markdown from "markdown-to-jsx";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 const Project = () => {
   const location = useLocation();
@@ -22,8 +25,8 @@ const Project = () => {
   const [users, setUsers] = useState([]);
   const [project, setProject] = useState(location.state.project);
   const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
   const { user } = useContext(UserContext);
-  const messageBox = React.createRef();
 
   const handleUserClick = (userId) => {
     setSelectedUserId((prevSelectedUserId) =>
@@ -49,12 +52,13 @@ const Project = () => {
   }
 
   function send() {
-    sendMessage("project-message", {
+    const newMessage = {
       message,
       sender: user,
-    });
+    };
 
-    appendOutgoingMessage(message);
+    sendMessage("project-message", newMessage);
+    appendOutgoingMessage(newMessage);
 
     setMessage("");
   }
@@ -63,7 +67,6 @@ const Project = () => {
     initializeSocket(project._id);
 
     receiveMessage("project-message", (data) => {
-      console.log(data);
       appendIncomingMessage(data);
     });
 
@@ -87,49 +90,11 @@ const Project = () => {
   }, []);
 
   function appendIncomingMessage(messageObject) {
-    const messageBox = document.querySelector(".message-box");
-    const message = document.createElement("div");
-    message.classList.add(
-      "message",
-      "incoming",
-      "p-4",
-      "rounded-lg",
-      "mb-2",
-      "break-words",
-      "max-w-md"
-    );
-
-    message.innerHTML = `
-      <div class="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-4 rounded-lg shadow-md max-w-md">
-        <small class="opacity-75 text-xs text-gray-600 dark:text-gray-400 ">${messageObject.sender.email}</small>
-        <p>${messageObject.message}</p>
-      </div>
-    `;
-
-    messageBox.appendChild(message);
+    setMessages((prevMessages) => [...prevMessages, messageObject]);
   }
 
-  function appendOutgoingMessage(message) {
-    const messageBox = document.querySelector(".message-box");
-    const newMessage = document.createElement("div");
-    newMessage.classList.add(
-      "message",
-      "outgoing",
-      "ml-auto",
-      "p-4",
-      "rounded-lg",
-      "mb-2",
-      "break-words"
-    );
-
-    newMessage.innerHTML = `
-      <div class="bg-blue-500 text-white p-4 rounded-lg shadow-md max-w-md">
-        <small class="opacity-75 text-xs">${user.email}</small>
-        <p>${message}</p>
-      </div>
-    `;
-
-    messageBox.appendChild(newMessage);
+  function appendOutgoingMessage(messageObject) {
+    setMessages((prevMessages) => [...prevMessages, messageObject]);
   }
 
   return (
@@ -151,28 +116,57 @@ const Project = () => {
           </button>
         </header>
 
-        <div className="conversation-area flex-grow flex flex-col p-4 overflow-auto">
-          <div
-            ref={messageBox}
-            className="message-box flex flex-col space-y-2 overflow-y-auto pb-16"
+        <div className="conversation-area flex-grow flex flex-col overflow-y-auto p-4">
+          <div className="message-box flex-grow flex flex-col space-y-2">
+            {messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`message max-w-2/3 flex flex-col p-3 rounded-md shadow-md ${
+                  msg.sender && user && msg.sender._id === user._id.toString()
+                    ? "ml-auto bg-blue-500 text-white self-end"
+                    : msg.sender._id === "ai"
+                    ? "mr-auto bg-gray-900 text-white border border-gray-700"
+                    : "mr-auto bg-gray-200 text-gray-800 self-start"
+                }`}
+              >
+                {/* Sender Info */}
+                <small className="opacity-75 text-xs mb-1">
+                  {msg.sender.email || "AI"}
+                </small>
+
+                {/* Message Content */}
+                {msg.sender._id === "ai" ? (
+                  <div className="max-h-40 overflow-y-auto overflow-x-hidden text-sm font-mono rounded-md bg-gray-900 p-2 border border-gray-700">
+                    <SyntaxHighlighter
+                      style={tomorrow}
+                      wrapLongLines
+                    >
+                      {msg.message}
+                    </SyntaxHighlighter>
+                  </div>
+                ) : (
+                  <p className="text-sm break-words">{msg.message}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Fixed Input Box */}
+        <div className="inputField w-1/4 flex p-2 bg-gray-900 fixed bottom-0 left-0 right-0 z-10">
+          <input
+            className="flex-grow p-2 border rounded-l outline-none bg-gray-700 text-white"
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Enter a message"
+          />
+          <button
+            className="p-2 bg-blue-600 text-white rounded-r hover:bg-blue-700"
+            onClick={send}
           >
-            {/* Messages will be appended here */}
-          </div>
-          <div className="inputField w-1/4 flex items-center p-2 bg-gray-900 fixed bottom-0 left-0 gap-2">
-            <input
-              className="flex-grow max-w-[90%] p-2 border rounded-md outline-none bg-gray-700 text-white"
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Enter a message"
-            />
-            <button
-              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              onClick={send}
-            >
-              <IoMdSend size={20} />
-            </button>
-          </div>
+            <IoMdSend />
+          </button>
         </div>
 
         <div
